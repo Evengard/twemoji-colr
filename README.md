@@ -33,6 +33,13 @@ Both FontForge and font-tools can be installed via `homebrew` on OS X, or packag
 
     # Ubuntu, for example
     sudo apt-get install fonttools fontforge python-fontforge
+	
+UPDATE:
+For generation of the outlines more tools are needed:
+- rsvg-convert
+- convert (aka Imagemagick)
+- mkbitmap (part of Potrace)
+- potrace
 
 ## Building the font
 
@@ -40,4 +47,4 @@ Once the necessary build tools are all in place, simply running
 
     make
 
-should build the color-emoji font `build/Twemoji Mozilla.ttf` from the source SVG files found in `twe-svg.zip` file and `extras`, `overrides` directories.
+should build the color-emoji font `build/Twemoji Evengard.ttf` from the source SVG files found in `twe-svg.zip` file and `extras`, `overrides` directories.

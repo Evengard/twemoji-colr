@@ -4,7 +4,7 @@ PERL       ?= perl
 PYTHON     ?= python
 TTX        ?= ttx
 
-FONT_NAME  = Twemoji\ Mozilla
+FONT_NAME  = Twemoji\ Evengard
 
 BUILD_DIR  = build
 
@@ -29,12 +29,15 @@ $(FINAL_TARGET) : $(RAW_FONT) $(OT_SOURCE)
 	        -e 'while(<>) {' \
 	        -e '  $$ps = 1 if m/nameID="6"/;' \
 	        -e '  $$ps = 0 if m|</namerecord>|;' \
-	        -e '  s/Twemoji Mozilla/TwemojiMozilla/ if $$ps;' \
+	        -e '  s/Twemoji Evengard/TwemojiEvengard/ if $$ps;' \
 	        -e '  print;' \
 	        -e '}' $(RAW_FONT).names
 	$(TTX) -m $(RAW_FONT) -o $(RAW_FONT).renamed.ttf $(RAW_FONT).names
 	$(PYTHON) fixDirection.py $(RAW_FONT).renamed.ttf
-	$(TTX) -m $(RAW_FONT).renamed.ttf -o $(FINAL_TARGET) $(OT_SOURCE)
+	$(TTX) -o $(RAW_FONT).renamed.ttx $(RAW_FONT).renamed.ttf
+	$(PYTHON) xmlcombine.py $(RAW_FONT).renamed.ttx $(BUILD_DIR)/raw-font/merge.ttx > $(RAW_FONT).merged.ttx
+	$(TTX) -o $(RAW_FONT).merged.ttf $(RAW_FONT).merged.ttx
+	$(TTX) -m $(RAW_FONT).merged.ttf -o $(FINAL_TARGET) $(OT_SOURCE)
 
 $(RAW_FONT) : $(CODEPOINTS) $(GRUNTFILE)
 	$(NPM) run grunt webfont

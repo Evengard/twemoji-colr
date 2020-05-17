@@ -15,7 +15,7 @@ module.exports = function(grunt) {
                 src: 'build/glyphs/*.svg',
                 dest: 'build/raw-font',
                 options: {
-                    font: 'Twemoji Mozilla',
+                    font: 'Twemoji Evengard',
                     types: 'ttf',
                     autoHint: false,
                     execMaxBuffer: 1024 * 1000,

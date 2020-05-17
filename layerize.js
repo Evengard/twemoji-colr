@@ -2,7 +2,8 @@ var fs         = require('fs'),
     rmdir      = require('rmdir'),
     unzip      = require('unzip'),
     xmlbuilder = require('xmlbuilder'),
-    xml2js     = require('xml2js');
+    xml2js     = require('xml2js'),
+	execSync   = require('child_process').execSync;
 
 var sourceZip    = process.argv[2];
 var overridesDir = process.argv[3];
@@ -54,6 +55,7 @@ var addToXML = function(xml, p) {
 };
 
 var codepoints = [];
+var basechars = [];
 
 function expandColor(c) {
     if (c == undefined) {
@@ -71,6 +73,8 @@ function expandColor(c) {
         c = '#00f';
     } else if (c == 'navy') {
         c = '#000080';
+    } else if (c == 'currentcolor') {
+        c = '#000000';
     }
     // c is a hex color that might be shorthand (3 instead of 6 digits)
     if (c.substr(0, 1) == '#' && c.length == 4) {
@@ -591,12 +595,87 @@ function processFile(fileName, data) {
             fs.writeFileSync(targetDir + "/glyphs/u" + unicodes.join("_") + ".svg",
                              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
             codepoints.push('"u' + unicodes.join("_") + '": -1');
+			
+			// Also create the placeholder glyphs for the monochrome variant
+			fs.writeFileSync(targetDir + "/glyphs/u" + unicodes.join("_") + "_mono.svg",
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+            codepoints.push('"u' + unicodes.join("_") + '_mono": -1');
+			
+			// Special case when we got a ligature with the UV16 aka "colorized" - we try to generate a variant with UV15
+			if (unicodes[unicodes.length-1] == "fe0f")
+			{
+				/*var unicodesBW = unicodes.join("-").replace("fe0f", "fe0e").split("-");
+				ligatures.push({unicodes: unicodesBW, components: []});
+				
+				fs.writeFileSync(targetDir + "/glyphs/u" + unicodesBW.join("_") + ".svg",
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+				codepoints.push('"u' + unicodesBW.join("_") + '": -1');
+				
+				fs.writeFileSync(targetDir + "/glyphs/u" + unicodesBW.join("_") + "_mono.svg",
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+				codepoints.push('"u' + unicodesBW.join("_") + '_mono": -1');*/
+				
+				var unicodesBW2 = unicodes.slice(0, -1);
+				ligatures.push({unicodes: unicodesBW2, components: []});
+				
+				fs.writeFileSync(targetDir + "/glyphs/u" + unicodesBW2.join("_") + ".svg",
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+				codepoints.push('"u' + unicodesBW2.join("_") + '": -1');
+				
+				fs.writeFileSync(targetDir + "/glyphs/u" + unicodesBW2.join("_") + "_mono.svg",
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+				codepoints.push('"u' + unicodesBW2.join("_") + '_mono": -1');
+				
+				var basechars_entry = { glyphName: 'ufe0e_mono', codepoint: '0xfe0e' };
+				
+				var fnd = false;
+				basechars.forEach(function(ch)
+				{
+					if (ch.codepoint == basechars_entry.codepoint)
+					{
+						fnd = true;
+					}
+				});
+				if (!fnd)
+				{
+					// make sure we have a placeholder glyph for the individual character, or for each component of the ligature
+					fs.writeFileSync(targetDir + "/glyphs/ufe0e.svg",
+									 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+					codepoints.push('"ufe0e": ' + parseInt('fe0e', 16));
+					
+					// Also create the placeholder glyphs for the monochrome variant
+					fs.writeFileSync(targetDir + "/glyphs/ufe0e_mono.svg",
+									 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+					codepoints.push('"ufe0e_mono": -1');
+					basechars.push(basechars_entry);
+				}
+			}
         }
         unicodes.forEach(function(u) {
             // make sure we have a placeholder glyph for the individual character, or for each component of the ligature
             fs.writeFileSync(targetDir + "/glyphs/u" + u + ".svg",
                              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
             codepoints.push('"u' + u + '": ' + parseInt(u, 16));
+			
+			// Also create the placeholder glyphs for the monochrome variant
+			fs.writeFileSync(targetDir + "/glyphs/u" + u + "_mono.svg",
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+            codepoints.push('"u' + u + '_mono": -1');
+			
+			
+			var basechars_entry = { glyphName: 'u' + u + '_mono', codepoint: '0x' + u };
+			var fnd = false;
+			basechars.forEach(function(ch)
+			{
+				if (ch.codepoint == basechars_entry.codepoint)
+				{
+					fnd = true;
+				}
+			});
+			if (!fnd)
+			{
+				basechars.push(basechars_entry);
+			}
         });
     });
 }
@@ -632,6 +711,86 @@ function generateTTX() {
     });
     fs.writeFileSync(targetDir + "/layer_info.json", JSON.stringify(layerInfo, null, 2));
 
+
+	// Generating fallback fonts and prepare GLIF table entries for them (we will merge this file later)
+	var ttFont2 = xmlbuilder.create("ttFont");
+	var glyf = ttFont2.ele("glyf");
+	var cmap = ttFont2.ele("cmap");
+	var cmap14 = cmap.ele("cmap_format_14", {platformID: "0", platEncID: "5", format: "14", length: "0", numVarSelectorRecords: "1"});
+	for (var unicodes in layerInfo)
+	{
+		var glyphName = "u" + unicodes;
+		if (layerInfo[unicodes].length == 1)
+		{
+			var reusedGlyph = layerInfo[unicodes][0];
+			// Use existing one-layer file - it is monochrome anyway
+			fs.writeFileSync(targetDir + "/glyphs/" + glyphName + "_mono.svg",
+                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" enable-background="new 0 0 64 64"></svg>');
+			codepoints.push('"' + glyphName + "_mono" + '": -1');
+			var ttGlyph = glyf.ele("TTGlyph", {name: glyphName + "_mono"});
+			ttGlyph.ele("component", {glyphName: reusedGlyph, x: "0", y: "0", flags: "0x200"});
+			ttGlyph = glyf.ele("TTGlyph", {name: glyphName});
+			ttGlyph.ele("component", {glyphName: glyphName + "_mono", x: "0", y: "0", flags: "0x200"});
+		}
+		else if (layerInfo[unicodes].length > 1)
+		{
+			// Generate using method from github.com/eosrei/twemoji-color-font (modified a little bit to be faster)
+			/// TODO: implement
+			var bwPathSub = "bwGlyphs/" + glyphName + ".svg";
+			if (fs.existsSync(bwPathSub))
+			{
+				fs.copyFileSync("bwGlyphs/" + glyphName + ".svg", targetDir + "/glyphs/" + glyphName + "_mono.svg");
+			}
+			else
+			{
+				var colorPath = targetDir + "/colorGlyphs/" + glyphName.split("_").join("-") + ".svg";
+				execSync("rsvg-convert -w 1000 -h 1000 -o /dev/shm/" + glyphName + ".png " + colorPath);
+				execSync("convert /dev/shm/" + glyphName + ".png -gravity center -extent 1066x1066 /dev/shm/" + glyphName + ".bmp");
+				fs.unlinkSync("/dev/shm/" + glyphName + ".png");
+				execSync("mkbitmap -g -s 1 -f 10 -o /dev/shm/" + glyphName + ".pgm /dev/shm/" + glyphName + ".bmp");
+				fs.unlinkSync("/dev/shm/" + glyphName + ".bmp");
+				execSync("potrace --flat -s --height 2048pt --width 2048pt -o " + targetDir + "/glyphs/" + glyphName + "_mono.svg /dev/shm/" + glyphName + ".pgm");
+				fs.unlinkSync("/dev/shm/" + glyphName + ".pgm");
+			}
+			fs.copyFileSync(targetDir + "/glyphs/" + glyphName + "_mono.svg", targetDir + "/bwGlyphs/" + glyphName + ".svg");
+			codepoints.push('"' + glyphName + "_mono" + '": -1');
+			var ttGlyph = glyf.ele("TTGlyph", {name: glyphName});
+			ttGlyph.ele("component", {glyphName: glyphName + "_mono", x: "0", y: "0", flags: "0x200"});
+			
+			// Forced UV16 to UV15 fixup attempt
+			var uniarr = unicodes.split("_");
+			if (uniarr[uniarr.length-1] == "fe0f")
+			{
+				/*var glyphNameV15 = "u" + unicodes.replace("fe0f", "fe0e");
+				
+				ttGlyph = glyf.ele("TTGlyph", {name: glyphNameV15});
+				ttGlyph.ele("component", {glyphName: glyphName + "_mono", x: "0", y: "0", flags: "0x200"});*/
+				
+				var glyphNameV15_2 = "u" + uniarr.slice(0, -1).join("_");
+				codepoints.push('"' + glyphNameV15_2 + "_mono" + '": -1');
+				ttGlyph = glyf.ele("TTGlyph", {name: glyphNameV15_2});
+				ttGlyph.ele("component", {glyphName: glyphName + "_mono", x: "0", y: "0", flags: "0x200"});
+				
+				ttGlyph = glyf.ele("TTGlyph", {name: glyphNameV15_2 + "_mono"});
+				ttGlyph.ele("component", {glyphName: glyphName + "_mono", x: "0", y: "0", flags: "0x200"});
+				
+				
+			}
+		}
+		
+	}
+	// Using collected monochrome symbols to construct format 14 cmap table
+	console.log(basechars)
+	basechars.forEach(function(ch)
+	{
+		console.log(ch.glyphName);
+		cmap14.ele("map", {uvs: "0xfe0e", uv: ch.codepoint, name: ch.glyphName});
+	});
+	var ttxMerge = fs.createWriteStream(targetDir + "/raw-font/merge.ttx");
+	ttxMerge.write('<?xml version="1.0" encoding="UTF-8"?>\n');
+    ttxMerge.write(ttFont2.toString({pretty: true}));
+    ttxMerge.end();
+	
     // CPAL table maps color index values to RGB colors
     var CPAL = ttFont.ele("CPAL");
     CPAL.ele("version", {value: 0});
@@ -679,7 +838,13 @@ function generateTTX() {
             ligatureSetKeys.push(startGlyph);
             ligatureSets[startGlyph] = [];
         }
-        ligatureSets[startGlyph].push({components: components, glyph: glyphName});
+		ligatureSets[startGlyph].push({components: components, glyph: glyphName});
+		
+		// Taking care of monochrome ligatures:
+		// if our last symbol was "varianted" into a text-only form, we make the whole ligature monochrome
+		components = components + "_mono";
+		glyphName = glyphName + "_mono";
+		ligatureSets[startGlyph].push({components: components, glyph: glyphName});
     }
     ligatures.forEach(addLigToSet);
     extraLigatures.forEach(addLigToSet);
@@ -698,7 +863,7 @@ function generateTTX() {
 
     var ttx = fs.createWriteStream(targetDir + "/" + fontName + ".ttx");
     ttx.write('<?xml version="1.0" encoding="UTF-8"?>\n');
-    ttx.write(ttFont.toString());
+    ttx.write(ttFont.toString({pretty: true}));
     ttx.end();
 
     // Write out the codepoints file to control character code assignments by grunt-webfont
@@ -710,6 +875,8 @@ rmdir(targetDir, function() {
     fs.mkdirSync(targetDir);
     fs.mkdirSync(targetDir + "/glyphs");
     fs.mkdirSync(targetDir + "/colorGlyphs");
+	fs.mkdirSync(targetDir + "/bwGlyphs");
+	fs.mkdirSync(targetDir + "/raw-font");
 
     // Read glyphs from the "extras" directory
     var extras = fs.readdirSync(extrasDir);
